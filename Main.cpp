@@ -13,10 +13,10 @@ int main() {
 	spec.Width = 800;
 	spec.Height = 600;
 
-	Engine::Application app = Engine::Application(spec);
+	Engine::Application *app = new Engine::Application(spec);
 
 	try {
-		app.Run();
+		app->Run();
 	}
 	catch (const std::exception& e) {
 		std::cerr << e.what() << std::endl;
