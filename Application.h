@@ -19,6 +19,8 @@ const bool c_EnableValidationLayers = true;
 const bool c_EnableValidationLayers = false;
 #endif
 
+const int MAX_FRAMES_IN_FLIGHT = 2;
+
 const std::vector<const char*> c_ValidationLayers = {
 	"VK_LAYER_KHRONOS_validation"
 };
@@ -75,7 +77,7 @@ namespace Engine {
 		void createGraphicsPipeline();
 		void createFramebuffers();
 		void createCommandPool();
-		void createCommandBuffer();
+		void createCommandBuffers();
 		void createSyncObjects();
 		
 		VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
@@ -103,10 +105,11 @@ namespace Engine {
 		VkPipeline m_GraphicsPipeline;
 		std::vector<VkFramebuffer> m_SwapChainFramebuffers;
 		VkCommandPool m_CommandPool;
-		VkCommandBuffer m_CommandBuffer;
-		VkSemaphore m_ImageAvailableSemaphore;
-		VkSemaphore m_RenderFinishedSemaphore;
-		VkFence m_InFlightFence;
+		std::vector<VkCommandBuffer> m_CommandBuffers;
+		std::vector<VkSemaphore> m_ImageAvailableSemaphores;
+		std::vector<VkSemaphore> m_RenderFinishedSemaphores;
+		std::vector<VkFence> m_InFlightFences;
 		ApplicationSpec m_Spec;
+		uint32_t m_CurrentFrame = 0;
 	};
 }

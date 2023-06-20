@@ -2,6 +2,7 @@
 	TODO list to when the setup is finihed
 
 	- Compile the shaders inside the code instead of using glslc.exe
+	- Integrate ImGui
 */
 
 #include "Application.h"
