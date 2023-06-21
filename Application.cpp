@@ -8,6 +8,7 @@ static VkQueue g_GraphicsQueue = VK_NULL_HANDLE;
 static VkQueue g_PresentQueue = VK_NULL_HANDLE;
 //static VkDebugUtilsMessengerEXT g_DebugMessenger;
 static VkSurfaceKHR g_Surface = VK_NULL_HANDLE;
+static bool g_FramebufferResized = false;
 
 namespace Engine {
 	Application::Application(const ApplicationSpec &spec) : m_Spec(spec) {
@@ -66,10 +67,18 @@ namespace Engine {
 
 	void Application::drawFrame() {
 		vkWaitForFences(g_VulkanDevice, 1, &m_InFlightFences[m_CurrentFrame], VK_TRUE, UINT64_MAX);
-		vkResetFences(g_VulkanDevice, 1, &m_InFlightFences[m_CurrentFrame]);
 
 		uint32_t imageIndex;
-		vkAcquireNextImageKHR(g_VulkanDevice, m_SwapChain, UINT64_MAX, m_ImageAvailableSemaphores[m_CurrentFrame], VK_NULL_HANDLE, &imageIndex);
+		VkResult result = vkAcquireNextImageKHR(g_VulkanDevice, m_SwapChain, UINT64_MAX, m_ImageAvailableSemaphores[m_CurrentFrame], VK_NULL_HANDLE, &imageIndex);
+
+		if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+			recreateSwapChain();
+			return;
+		} else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+			throw std::runtime_error("Failed to acquire swap chain image!");
+		}
+
+		vkResetFences(g_VulkanDevice, 1, &m_InFlightFences[m_CurrentFrame]);
 
 		vkResetCommandBuffer(m_CommandBuffers[m_CurrentFrame], 0);
 		recordCommandBuffer(m_CommandBuffers[m_CurrentFrame], imageIndex);
@@ -105,7 +114,15 @@ namespace Engine {
 		presentInfo.pImageIndices = &imageIndex;
 		presentInfo.pResults = nullptr;
 
-		vkQueuePresentKHR(g_PresentQueue, &presentInfo);
+		result = vkQueuePresentKHR(g_PresentQueue, &presentInfo);
+
+		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || g_FramebufferResized) {
+			g_FramebufferResized = false;
+			recreateSwapChain();
+			//return;
+		} else if (result != VK_SUCCESS) {
+			throw std::runtime_error("Failed to present swap chain image!");
+		}
 
 		// using modulo operator to ensure that the frame index loops around after every MAX_FRAMES_IN_FLIGHT enqueued frames
 		m_CurrentFrame = (m_CurrentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
@@ -131,15 +148,20 @@ namespace Engine {
 		InitVulkan();
 	}
 
+	static void framebufferResizeCallback(GLFWwindow *window, int width, int height) {
+		g_FramebufferResized = true;
+		std::cout << "width - " << width << " height - " << height << '\n';
+	}
+
 	void Application::InitGlfw() {
 		if (!glfwInit()) {
 			throw std::runtime_error("Failed to initialize window!");
 		}
 
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
 		m_Window = glfwCreateWindow(m_Spec.Width, m_Spec.Height, m_Spec.Name.c_str(), nullptr, nullptr);
+		glfwSetFramebufferSizeCallback(m_Window, framebufferResizeCallback);
 	}
 
 	void Application::InitVulkan() {
@@ -899,6 +921,39 @@ namespace Engine {
 		}
 	}
 
+	void Application::cleanupSwapChain() {
+
+		for (auto framebuffer : m_SwapChainFramebuffers) {
+			vkDestroyFramebuffer(g_VulkanDevice, framebuffer, nullptr);
+		}
+
+		for (auto imageView : m_SwapChainImageViews) {
+			vkDestroyImageView(g_VulkanDevice, imageView, nullptr);
+		}
+
+		vkDestroySwapchainKHR(g_VulkanDevice, m_SwapChain, nullptr);
+	}
+
+	void Application::recreateSwapChain() {
+		int width = 0;
+		int height = 0;
+
+		glfwGetFramebufferSize(m_Window, &width, &height);
+
+		while (width == 0 || height == 0) {
+			glfwGetFramebufferSize(m_Window, &width, &height);
+			glfwWaitEvents();
+		}
+
+		vkDeviceWaitIdle(g_VulkanDevice);
+
+		cleanupSwapChain();
+
+		createSwapChain();
+		createImageViews();
+		createFramebuffers();
+	}
+
 	void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, 
 		const VkAllocationCallbacks* pAllocator) {
 	
@@ -911,6 +966,12 @@ namespace Engine {
 
 	void Application::Shutdown() {
 
+		cleanupSwapChain();
+
+		vkDestroyPipeline(g_VulkanDevice, m_GraphicsPipeline, nullptr);
+		vkDestroyPipelineLayout(g_VulkanDevice, m_PipelineLayout, nullptr);
+		vkDestroyRenderPass(g_VulkanDevice, m_RenderPass, nullptr);
+		
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 			vkDestroySemaphore(g_VulkanDevice, m_ImageAvailableSemaphores[i], nullptr);
 			vkDestroySemaphore(g_VulkanDevice, m_RenderFinishedSemaphores[i], nullptr);
@@ -919,19 +980,6 @@ namespace Engine {
 
 		vkDestroyCommandPool(g_VulkanDevice, m_CommandPool, nullptr);
 
-		for (auto framebuffer : m_SwapChainFramebuffers) {
-			vkDestroyFramebuffer(g_VulkanDevice, framebuffer, nullptr);
-		}
-
-		vkDestroyPipeline(g_VulkanDevice, m_GraphicsPipeline, nullptr);
-		vkDestroyPipelineLayout(g_VulkanDevice, m_PipelineLayout, nullptr);
-		vkDestroyRenderPass(g_VulkanDevice, m_RenderPass, nullptr);
-
-		for (auto imageView : m_SwapChainImageViews) {
-			vkDestroyImageView(g_VulkanDevice, imageView, nullptr);
-		}
-
-		vkDestroySwapchainKHR(g_VulkanDevice, m_SwapChain, nullptr);
 		vkDestroyDevice(g_VulkanDevice, nullptr);
 
 		if (c_EnableValidationLayers) {

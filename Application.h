@@ -79,7 +79,9 @@ namespace Engine {
 		void createCommandPool();
 		void createCommandBuffers();
 		void createSyncObjects();
-		
+		void recreateSwapChain();
+		void cleanupSwapChain();
+
 		VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 
 		void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
@@ -111,5 +113,6 @@ namespace Engine {
 		std::vector<VkFence> m_InFlightFences;
 		ApplicationSpec m_Spec;
 		uint32_t m_CurrentFrame = 0;
+		//bool m_FramebufferResized = false;
 	};
 }

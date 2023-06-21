@@ -1,3 +1,0 @@
-C:\Users\Felipe\Documents\current_projects\RayTracer\x64\Debug\RayTracer.exe
-C:\Users\Felipe\Documents\current_projects\Vulkan-Ray-Tracer\x64\Debug\RayTracer.exe
-C:\Users\Felipe\Documents\current_projects\Vulkan-RayTracer\x64\Debug\RayTracer.exe
