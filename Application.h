@@ -2,11 +2,13 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
 
 #include <iostream>
 #include <stdexcept>
 #include <cstdlib>
 #include <vector>
+#include <array>
 #include <optional>
 #include <set>
 #include <limits>
@@ -52,6 +54,36 @@ namespace Engine {
 		std::vector<VkPresentModeKHR> presentModes;
 	};
 
+	struct Vertex {
+		// temporary, will move it to a better place later
+		glm::vec2 pos;
+		glm::vec3 color;
+
+		static VkVertexInputBindingDescription getBindingDescription() {
+			VkVertexInputBindingDescription bindingDescription{};
+			bindingDescription.binding = 0;
+			bindingDescription.stride = sizeof(Vertex);
+			bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+			return bindingDescription;
+		}
+
+		static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
+			std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
+			attributeDescriptions[0].binding = 0;
+			attributeDescriptions[0].location = 0;
+			attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+			attributeDescriptions[0].offset = offsetof(Vertex, pos);
+
+			attributeDescriptions[1].binding = 0;
+			attributeDescriptions[1].location = 1;
+			attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+			attributeDescriptions[1].offset = offsetof(Vertex, color);
+			
+			return attributeDescriptions;
+		}
+	};
+
 	class Application {
 	public:
 		Application(const ApplicationSpec &applicationSpec = ApplicationSpec());
@@ -77,6 +109,7 @@ namespace Engine {
 		void createGraphicsPipeline();
 		void createFramebuffers();
 		void createCommandPool();
+		void createVertexBuffer();
 		void createCommandBuffers();
 		void createSyncObjects();
 		void recreateSwapChain();
@@ -113,6 +146,7 @@ namespace Engine {
 		std::vector<VkFence> m_InFlightFences;
 		ApplicationSpec m_Spec;
 		uint32_t m_CurrentFrame = 0;
-		//bool m_FramebufferResized = false;
+		VkBuffer m_VertexBuffer;
+		VkDeviceMemory m_VertexBufferMemory;
 	};
 }
