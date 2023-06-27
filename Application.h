@@ -118,6 +118,9 @@ namespace Engine {
 		VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 
 		void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+		void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+		void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+	
 		void drawFrame();
 
 	private:

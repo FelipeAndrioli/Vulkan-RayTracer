@@ -917,35 +917,88 @@ namespace Engine {
 		throw std::runtime_error("Failed to find suitable memory type!");
 	}
 
-	void Application::createVertexBuffer() {
+	void Application::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
+		VkCommandBufferAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		allocInfo.commandPool = m_CommandPool;
+		allocInfo.commandBufferCount = 1;
+
+		VkCommandBuffer commandBuffer;
+		vkAllocateCommandBuffers(g_VulkanDevice, &allocInfo, &commandBuffer);
+
+		VkCommandBufferBeginInfo beginInfo{};
+		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+		vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+		VkBufferCopy copyRegion{};
+		copyRegion.srcOffset = 0;
+		copyRegion.dstOffset = 0;
+		copyRegion.size = size;
+		vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+		vkEndCommandBuffer(commandBuffer);
+
+		VkSubmitInfo submitInfo{};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &commandBuffer;
+
+		vkQueueSubmit(g_GraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+		vkQueueWaitIdle(g_GraphicsQueue);
+
+		vkFreeCommandBuffers(g_VulkanDevice, m_CommandPool, 1, &commandBuffer);
+	}
+
+	void Application::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) {
 		VkBufferCreateInfo bufferInfo{};
 		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		bufferInfo.size = sizeof(vertices[0]) * vertices.size();
-		bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+		bufferInfo.size = size;
+		bufferInfo.usage = usage;
 		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-		if (vkCreateBuffer(g_VulkanDevice, &bufferInfo, nullptr, &m_VertexBuffer) != VK_SUCCESS) {
-			throw std::runtime_error("Failed to create vertex buffer!");
+		if (vkCreateBuffer(g_VulkanDevice, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create buffer!");
 		}
 
 		VkMemoryRequirements memRequirements;
-		vkGetBufferMemoryRequirements(g_VulkanDevice, m_VertexBuffer, &memRequirements);
+		vkGetBufferMemoryRequirements(g_VulkanDevice, buffer, &memRequirements);
 
 		VkMemoryAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 		allocInfo.allocationSize = memRequirements.size;
-		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
 	
-		if (vkAllocateMemory(g_VulkanDevice, &allocInfo, nullptr, &m_VertexBufferMemory) != VK_SUCCESS) {
+		if (vkAllocateMemory(g_VulkanDevice, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to allocate vertex buffer memory!");
 		}
 
-		vkBindBufferMemory(g_VulkanDevice, m_VertexBuffer, m_VertexBufferMemory, 0);
+		vkBindBufferMemory(g_VulkanDevice, buffer, bufferMemory, 0);
+	}
+
+	void Application::createVertexBuffer() {
+		VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+
+		VkBuffer stagingBuffer;
+		VkDeviceMemory stagingBufferMemory;
+
+		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+			stagingBuffer, stagingBufferMemory);
 
 		void* data;
-		vkMapMemory(g_VulkanDevice, m_VertexBufferMemory, 0, bufferInfo.size, 0, &data);
-		memcpy(data, vertices.data(), (size_t)bufferInfo.size);
-		vkUnmapMemory(g_VulkanDevice, m_VertexBufferMemory);
+		vkMapMemory(g_VulkanDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
+		memcpy(data, vertices.data(), (size_t)bufferSize);
+		vkUnmapMemory(g_VulkanDevice, stagingBufferMemory);
+		
+		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_VertexBuffer, m_VertexBufferMemory);
+
+		copyBuffer(stagingBuffer, m_VertexBuffer, bufferSize);
+
+		vkDestroyBuffer(g_VulkanDevice, stagingBuffer, nullptr);
+		vkFreeMemory(g_VulkanDevice, stagingBufferMemory, nullptr);
 	}
 
 	void Application::createCommandBuffers() {
@@ -961,6 +1014,7 @@ namespace Engine {
 			throw std::runtime_error("Failed to create Command Buffer!");
 		}
 	}
+
 
 	void Application::createSyncObjects() {
 		m_ImageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
