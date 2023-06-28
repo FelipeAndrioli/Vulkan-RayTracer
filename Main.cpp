@@ -3,6 +3,7 @@
 
 	- Compile the shaders inside the code instead of using glslc.exe
 	- Integrate ImGui
+	- Separate the Vulkan setup to be reused as a library
 	- Future Challenges
 */
 

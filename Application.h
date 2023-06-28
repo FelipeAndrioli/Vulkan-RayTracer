@@ -1,8 +1,11 @@
 #pragma once
 
 #define GLFW_INCLUDE_VULKAN
+#define GLM_FORCE_RADIANS
+
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include <iostream>
 #include <stdexcept>
@@ -14,6 +17,8 @@
 #include <limits>
 #include <algorithm>
 #include <fstream>
+
+#include <chrono>
 
 #ifndef NDEBUG
 const bool c_EnableValidationLayers = true;
@@ -30,7 +35,7 @@ const std::vector<const char*> c_ValidationLayers = {
 namespace Engine {
 
 	const std::vector<const char*> c_DeviceExtensions = {
-		VK_KHR_SWAPCHAIN_EXTENSION_NAME	
+		VK_KHR_SWAPCHAIN_EXTENSION_NAME
 	};
 
 	struct ApplicationSpec {
@@ -79,9 +84,15 @@ namespace Engine {
 			attributeDescriptions[1].location = 1;
 			attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
 			attributeDescriptions[1].offset = offsetof(Vertex, color);
-			
+
 			return attributeDescriptions;
 		}
+	};
+
+	struct UniformBufferObject {
+		alignas(16) glm::mat4 model;
+		alignas(16) glm::mat4 view;
+		alignas(16) glm::mat4 proj;
 	};
 
 	class Application {
@@ -106,11 +117,15 @@ namespace Engine {
 		void createSwapChain();
 		void createImageViews();
 		void createRenderPass();
+		void createDescriptorSetLayout();
 		void createGraphicsPipeline();
 		void createFramebuffers();
 		void createCommandPool();
 		void createVertexBuffer();
 		void createIndexBuffer();
+		void createUniformBuffers();
+		void createDescriptorPool();
+		void createDescriptorSets();
 		void createCommandBuffers();
 		void createSyncObjects();
 		void recreateSwapChain();
@@ -121,6 +136,7 @@ namespace Engine {
 		void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 		void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 		void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+		void updateUniformBuffer(uint32_t currentImage);
 	
 		void drawFrame();
 
@@ -140,6 +156,7 @@ namespace Engine {
 		VkFormat m_SwapChainImageFormat;
 		VkExtent2D m_SwapChainExtent;
 		VkRenderPass m_RenderPass;
+		VkDescriptorSetLayout m_DescriptorSetLayout;
 		VkPipelineLayout m_PipelineLayout;
 		VkPipeline m_GraphicsPipeline;
 		std::vector<VkFramebuffer> m_SwapChainFramebuffers;
@@ -154,5 +171,10 @@ namespace Engine {
 		VkDeviceMemory m_VertexBufferMemory;
 		VkBuffer m_IndexBuffer;
 		VkDeviceMemory m_IndexBufferMemory;
+		std::vector<VkBuffer> m_UniformBuffers;
+		std::vector<VkDeviceMemory> m_UniformBuffersMemory;
+		std::vector<void*> m_UniformBuffersMapped;
+		VkDescriptorPool m_DescriptorPool;
+		std::vector<VkDescriptorSet> m_DescriptorSets;
 	};
 }
