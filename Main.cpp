@@ -25,6 +25,15 @@
 		memory for a large number of objects at the same time is to create a custom allocator that splits up a 
 		single allocation among many different objects by using the offset parameters that we've seen in many
 		functions.
+
+	- Multiple buffers into a single VkBuffer
+		The Driver developers from Vulkan recommend that we also store multiple buffers, like the vertex and
+		index buffer, into a single VkBuffer and use offsets in commands like vkCmdBindVertexBuffers. The
+		advantage is that our data is more cache friendly in that case, because it's closer together. It is
+		even possible to reuse the same chunk of memory for multiple resources if they are not used during
+		the same render operations, provided that their data is refreshed, of course. This is known as
+		aliasing and some Vulkan functions have explicit flags to specify that you want to do this.
+		
 */
 
 #include "Application.h"
