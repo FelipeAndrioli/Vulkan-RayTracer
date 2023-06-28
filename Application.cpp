@@ -12,9 +12,23 @@ static bool g_FramebufferResized = false;
 
 // Temporary
 const std::vector<Engine::Vertex> vertices = {
-	{{0.0f, -0.5f}, {1.0f, 1.0f, 1.0f}},
-	{{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-	{{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+	{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+	{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+	{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+	{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+};
+
+/*
+const std::vector<Engine::Vertex> vertices = {
+	{{-1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}},
+	{{1.0f, -1.0f}, {0.0f, 1.0f, 0.0f}},
+	{{1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},
+	{{-1.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}
+};
+*/
+
+const std::vector<uint16_t> indices = {
+	0, 1, 2, 2, 3, 0
 };
 
 
@@ -54,6 +68,7 @@ namespace Engine {
 		VkBuffer vertexBuffers[] = { m_VertexBuffer };
 		VkDeviceSize offsets[] = { 0 };
 		vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+		vkCmdBindIndexBuffer(commandBuffer, m_IndexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
 		VkViewport viewport{};
 		viewport.x = 0.0f;
@@ -69,7 +84,8 @@ namespace Engine {
 		scissor.extent = m_SwapChainExtent;
 		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-		vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices.size()), 1, 0, 0);
+		//vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices.size()), 1, 0, 0);
+		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 		vkCmdEndRenderPass(commandBuffer);
 
 		if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
@@ -191,6 +207,7 @@ namespace Engine {
 		createFramebuffers();
 		createCommandPool();
 		createVertexBuffer();
+		createIndexBuffer();
 		createCommandBuffers();
 		createSyncObjects();
 	}
@@ -1001,6 +1018,30 @@ namespace Engine {
 		vkFreeMemory(g_VulkanDevice, stagingBufferMemory, nullptr);
 	}
 
+	void Application::createIndexBuffer() {
+		VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
+
+		VkBuffer stagingBuffer;
+		VkDeviceMemory stagingBufferMemory;
+
+		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+			stagingBuffer, stagingBufferMemory);
+
+		void* data;
+		vkMapMemory(g_VulkanDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
+		memcpy(data, indices.data(), (size_t)bufferSize);
+		vkUnmapMemory(g_VulkanDevice, stagingBufferMemory);
+
+		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_IndexBuffer, m_IndexBufferMemory);
+		
+		copyBuffer(stagingBuffer, m_IndexBuffer, bufferSize);
+
+		vkDestroyBuffer(g_VulkanDevice, stagingBuffer, nullptr);
+		vkFreeMemory(g_VulkanDevice, stagingBufferMemory, nullptr);
+	}
+
 	void Application::createCommandBuffers() {
 		m_CommandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 
@@ -1083,6 +1124,9 @@ namespace Engine {
 	void Application::Shutdown() {
 
 		cleanupSwapChain();
+
+		vkDestroyBuffer(g_VulkanDevice, m_IndexBuffer, nullptr);
+		vkFreeMemory(g_VulkanDevice, m_IndexBufferMemory, nullptr);
 
 		vkDestroyBuffer(g_VulkanDevice, m_VertexBuffer, nullptr);
 		vkFreeMemory(g_VulkanDevice, m_VertexBufferMemory, nullptr);

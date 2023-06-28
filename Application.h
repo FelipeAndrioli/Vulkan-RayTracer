@@ -110,6 +110,7 @@ namespace Engine {
 		void createFramebuffers();
 		void createCommandPool();
 		void createVertexBuffer();
+		void createIndexBuffer();
 		void createCommandBuffers();
 		void createSyncObjects();
 		void recreateSwapChain();
@@ -151,5 +152,7 @@ namespace Engine {
 		uint32_t m_CurrentFrame = 0;
 		VkBuffer m_VertexBuffer;
 		VkDeviceMemory m_VertexBufferMemory;
+		VkBuffer m_IndexBuffer;
+		VkDeviceMemory m_IndexBufferMemory;
 	};
 }
