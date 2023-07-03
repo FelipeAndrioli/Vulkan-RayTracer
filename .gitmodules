@@ -1,0 +1,3 @@
+[submodule "lib/VulkanApplication"]
+	path = lib/VulkanApplication
+	url = git@github.com:FelipeAndrioli/VulkanApplication.git
